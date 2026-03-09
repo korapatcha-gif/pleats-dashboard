@@ -382,11 +382,7 @@ async function loadData() {
     const r = await fetch(API_URL + '?action=all');
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
-    // แปลง date string → timestamp
-    RAW = {
-      ...d,
-      _rows: buildRows(d),
-    };
+    RAW = d;
     renderPeriod();
     document.getElementById('ts').textContent =
       new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
