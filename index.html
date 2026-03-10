@@ -446,11 +446,9 @@ function renderPeriod() {
   let cur = calcFromDaily(dailyMap, start, end);
   let prv = calcFromDaily(dailyMap, prev.start, prev.end);
 
-  // fallback ใช้ summary จาก API ถ้า daily ไม่มีข้อมูล
+  // ใช้ summary จาก API สำหรับ thisMonth, lastMonth, thisYear เท่านั้น
   if (cur.sales === 0 && cur.orders === 0) {
     switch(PERIOD) {
-      case 'today':     cur=s.today;     prv={sales:s.prevMonth.sales/30||0, orders:Math.round(s.prevMonth.orders/30)||0}; break;
-      case 'yesterday': cur={sales:s.today.sales*0.9||0, orders:Math.round(s.today.orders*0.9)||0}; break;
       case 'thisMonth': cur=s.thisMonth; prv=s.prevMonth; break;
       case 'lastMonth': cur=s.prevMonth; break;
       case 'thisYear':  cur=s.thisYear||s.total; break;
