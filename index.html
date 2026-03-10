@@ -189,6 +189,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .yr-row:last-child{border-bottom:none;}
 .yr-label{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);}
 
+/* TOP CUSTOMERS */
+.cust-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.cust-row:last-child{border-bottom:none;}
+.cust-rank{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted);width:18px;text-align:center;flex-shrink:0;}
+.cust-rank.top1{color:var(--gold);}
+.cust-rank.top2{color:#c0c0c0;}
+.cust-rank.top3{color:#cd7f32;}
+.cust-info{flex:1;min-width:0;}
+.cust-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cust-meta{font-size:10px;color:var(--muted);margin-top:1px;}
+.cust-bar-wrap{flex:1.5;background:var(--border);border-radius:3px;height:5px;overflow:hidden;}
+.cust-bar{height:100%;border-radius:3px;background:var(--accent3);transition:width .8s ease;}
+.cust-bar.top{background:var(--accent);}
+.cust-amt{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);white-space:nowrap;text-align:right;min-width:70px;}
+
 /* ADD ORDER */
 .form-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .form-box{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:26px;width:400px;max-width:95vw;}
@@ -307,10 +322,16 @@ select.fi option{background:var(--bg3);}
     </div>
   </div>
 
-  <!-- YEARLY COMPARE -->
-  <div class="slabel">เปรียบเทียบรายปี</div>
-  <div class="card">
-    <div id="yearly"></div>
+  <!-- TOP CUSTOMERS + YEARLY -->
+  <div class="row r2">
+    <div class="card">
+      <div class="card-hd">🏆 ลูกค้าซื้อมากที่สุด <span style="font-size:10px;color:var(--muted);font-weight:400">(ช่วงที่เลือก)</span></div>
+      <div id="top-customers"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd" style="margin-bottom:10px">📅 เปรียบเทียบรายปี</div>
+      <div id="yearly"></div>
+    </div>
   </div>
 
 </div>
@@ -697,6 +718,32 @@ function renderPeriod() {
         <div class="o-amt">฿${fmt(o.amount)}</div>
       </div>`).join('')
     : '<div class="empty">ไม่มีออเดอร์ในช่วงนี้</div>';
+
+  // TOP CUSTOMERS — คำนวณจาก recent ที่กรองแล้ว
+  const custMap = {};
+  recent.forEach(o => {
+    const name = (o.customer||'').trim();
+    if (!name) return;
+    if (!custMap[name]) custMap[name] = { name, total: 0, orders: 0 };
+    custMap[name].total  += +o.amount || 0;
+    custMap[name].orders += 1;
+  });
+  const topCusts = Object.values(custMap).sort((a,b)=>b.total-a.total).slice(0,10);
+  const maxCustAmt = topCusts[0]?.total || 1;
+  const rankIcon = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}.`;
+  const rankCls  = i => i===0?'top1':i===1?'top2':i===2?'top3':'';
+  document.getElementById('top-customers').innerHTML = topCusts.length
+    ? topCusts.map((c,i)=>`
+      <div class="cust-row">
+        <div class="cust-rank ${rankCls(i)}">${rankIcon(i)}</div>
+        <div class="cust-info">
+          <div class="cust-name">${c.name}</div>
+          <div class="cust-meta">${c.orders} ออเดอร์</div>
+        </div>
+        <div class="cust-bar-wrap"><div class="cust-bar ${i===0?'top':''}" style="width:${(c.total/maxCustAmt*100).toFixed(0)}%"></div></div>
+        <div class="cust-amt">฿${fmt(c.total)}</div>
+      </div>`).join('')
+    : '<div class="empty">ไม่มีข้อมูลลูกค้าในช่วงนี้</div>';
 
   // YEARLY
   const yearly = RAW.yearly || [];
