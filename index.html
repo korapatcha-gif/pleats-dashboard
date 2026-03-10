@@ -59,7 +59,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 }
 .period-btn:hover{border-color:var(--accent);color:var(--accent);}
 .period-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;}
-.period-range{display:flex;align-items:center;gap:6px;margin-left:auto;position:relative;}
+.period-range{display:flex;align-items:center;gap:6px;position:relative;}
 .period-range span{font-size:11px;color:var(--muted);}
 /* Calendar Picker */
 .cal-btn{
@@ -422,13 +422,13 @@ function toggleCal() {
     document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
     if(!calLeftYear) initCal();
     renderCalBoth();
-    // close on outside click
-    setTimeout(()=>document.addEventListener('click',outsideCalClick),10);
+    setTimeout(()=>document.addEventListener('click',outsideCalClick),200);
   } else { closeCal(); }
 }
 
 function outsideCalClick(e) {
-  if(!document.getElementById('custom-range').contains(e.target)){
+  const wrap=document.getElementById('custom-range');
+  if(!wrap.contains(e.target)){
     closeCal();
     document.removeEventListener('click',outsideCalClick);
   }
@@ -437,6 +437,7 @@ function outsideCalClick(e) {
 function closeCal() {
   calOpen=false;
   document.getElementById('cal-dropdown').classList.remove('open');
+  document.removeEventListener('click',outsideCalClick);
 }
 
 function renderCalBoth() {
@@ -487,12 +488,20 @@ function calNav(id, dir) {
 }
 
 function calDayClick(y,m,d) {
-  const dt=new Date(y,m,d);
+  const dt=new Date(y,m,d); dt.setHours(0,0,0,0);
   if(!calSelStart || (calSelStart && calSelEnd)){
+    // เริ่มเลือกใหม่
     calSelStart=dt; calSelEnd=null;
   } else {
-    if(dt<calSelStart){calSelEnd=calSelStart;calSelStart=dt;}
-    else calSelEnd=dt;
+    // เลือกวันที่สอง
+    if(dt.getTime()===calSelStart.getTime()){
+      // คลิกวันเดิม = วันเดียว
+      calSelEnd=dt;
+    } else if(dt<calSelStart){
+      calSelEnd=calSelStart; calSelStart=dt;
+    } else {
+      calSelEnd=dt;
+    }
   }
   updateCalLabels();
   renderCalBoth();
