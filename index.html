@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pleats by MAMA — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -183,6 +185,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 @keyframes spin{to{transform:rotate(360deg)}}
 .loader-text{font-size:13px;color:var(--muted);}
 .empty{text-align:center;padding:24px;color:var(--subtle);font-size:12px;}
+
+/* SKELETON */
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skel{border-radius:6px;background:linear-gradient(90deg,var(--border) 25%,var(--border2) 50%,var(--border) 75%);background-size:800px 100%;animation:shimmer 1.4s infinite linear;}
+.skel-h{height:14px;margin-bottom:8px;}
+.skel-sm{height:10px;width:60%;}
+.skel-val{height:28px;width:55%;margin-bottom:6px;}
+.skel-bar{height:6px;margin-top:10px;}
 
 /* YEARLY COMPARE */
 .yr-row{display:grid;grid-template-columns:60px 1fr 90px 70px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
@@ -551,24 +561,88 @@ function applyCustom() {
   renderPeriod();
 }
 
+// ── CACHE ─────────────────────────────────────────────────
+const CACHE_KEY = 'pleats_raw_cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 นาที
+
+function saveCache(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch(e) {}
+}
+
+function loadCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY)||'null');
+    if (c && Date.now() - c.ts < CACHE_TTL) return c.data;
+  } catch(e) {}
+  return null;
+}
+
+function showSkeleton() {
+  const skelStat = `
+    <div class="stat" style="--sa:linear-gradient(90deg,var(--border),var(--border2));--sc:var(--muted)">
+      <div class="stat-ac"></div>
+      <div class="skel skel-h" style="width:40%"></div>
+      <div class="skel skel-val"></div>
+      <div class="skel skel-sm"></div>
+    </div>`;
+  document.getElementById('period-stats').innerHTML = skelStat.repeat(4);
+
+  const skelRow = `<div style="padding:9px 0;border-bottom:1px solid var(--border)">
+    <div class="skel skel-h" style="width:70%;margin-bottom:5px"></div>
+    <div class="skel skel-sm"></div>
+  </div>`;
+  ['recent','top-customers','products','comparison','yearly'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = skelRow.repeat(5);
+  });
+  document.getElementById('main-chart').innerHTML =
+    '<div style="display:flex;align-items:flex-end;gap:3px;height:110px;padding-top:20px">'
+    + Array.from({length:18},(_,i)=>`<div class="skel" style="flex:1;height:${20+Math.random()*80}px;border-radius:3px 3px 0 0"></div>`).join('')
+    + '</div>';
+}
+
 // ── LOAD ─────────────────────────────────────────────────
 async function loadData() {
-  document.getElementById('loader').style.display = 'flex';
   document.getElementById('btn-refresh').disabled = true;
+
+  // แสดงข้อมูล cache ทันที ไม่ต้องรอ API
+  const cached = loadCache();
+  if (cached) {
+    RAW = cached;
+    renderPeriod();
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+  } else {
+    // ไม่มี cache → แสดง skeleton แทน spinner เต็มจอ
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+    showSkeleton();
+  }
+
+  // โหลด API ใน background
   try {
     const r = await fetch(API_URL + '?action=all');
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
     RAW = d;
+    saveCache(d);
     renderPeriod();
     document.getElementById('ts').textContent =
       new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     document.getElementById('main').style.display = 'block';
   } catch(e) {
-    document.getElementById('loader-text').textContent = '❌ '+e.message;
-    setTimeout(()=>{ document.getElementById('loader').style.display='none'; document.getElementById('main').style.display='block'; },2500);
+    if (!cached) {
+      document.getElementById('loader').style.display = 'flex';
+      document.getElementById('loader-text').textContent = '❌ '+e.message;
+      setTimeout(()=>{ document.getElementById('loader').style.display='none'; },2500);
+    }
+    // ถ้ามี cache อยู่แล้ว แค่แสดง error เล็กๆ
+    else {
+      document.getElementById('ts').textContent = '⚠️ ใช้ข้อมูลเก่า';
+    }
   } finally {
-    document.getElementById('loader').style.display = 'none';
     document.getElementById('btn-refresh').disabled = false;
   }
 }
