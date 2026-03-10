@@ -422,7 +422,8 @@ function toggleCal() {
     document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
     if(!calLeftYear) initCal();
     renderCalBoth();
-    setTimeout(()=>document.addEventListener('click',outsideCalClick),200);
+    document.getElementById('cal-dropdown').addEventListener('click',e=>e.stopPropagation());
+  setTimeout(()=>document.addEventListener('click',outsideCalClick),200);
   } else { closeCal(); }
 }
 
@@ -468,7 +469,7 @@ function renderCalMonth(id, year, month) {
     if(calSelStart && dt.getTime()===calSelStart.getTime()) cls+=' selected';
     if(calSelEnd && dt.getTime()===calSelEnd.getTime()) cls+=' selected';
     if(calSelStart && calSelEnd && dt>calSelStart && dt<calSelEnd) cls+=' inrange';
-    html+=`<div class="${cls}" onclick="calDayClick(${year},${month},${d})">${d}</div>`;
+    html+=`<div class="${cls}" onclick="calDayClick(${year},${month},${d},event)">${d}</div>`;
   }
   html+='</div>';
   document.getElementById(id).innerHTML=html;
@@ -487,7 +488,7 @@ function calNav(id, dir) {
   renderCalBoth();
 }
 
-function calDayClick(y,m,d) {
+function calDayClick(y,m,d,e) { if(e){e.stopPropagation();}
   const dt=new Date(y,m,d); dt.setHours(0,0,0,0);
   if(!calSelStart || (calSelStart && calSelEnd)){
     // เริ่มเลือกใหม่
