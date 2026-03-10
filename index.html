@@ -59,13 +59,43 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 }
 .period-btn:hover{border-color:var(--accent);color:var(--accent);}
 .period-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;}
-.period-range{display:flex;align-items:center;gap:6px;margin-left:auto;}
-.period-range input{
-  background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
-  padding:5px 10px;color:var(--text);font-size:11px;font-family:var(--mono);outline:none;
-}
-.period-range input:focus{border-color:var(--accent);}
+.period-range{display:flex;align-items:center;gap:6px;margin-left:auto;position:relative;}
 .period-range span{font-size:11px;color:var(--muted);}
+/* Calendar Picker */
+.cal-btn{
+  border:1px solid var(--border2);background:transparent;color:var(--muted);
+  border-radius:100px;padding:5px 14px;font-size:12px;font-family:var(--body);
+  cursor:pointer;transition:all .2s;font-weight:500;display:flex;align-items:center;gap:5px;
+}
+.cal-btn:hover,.cal-btn.active{border-color:var(--accent);color:var(--accent);}
+.cal-dropdown{
+  position:absolute;top:calc(100% + 8px);right:0;z-index:999;
+  background:var(--card);border:1px solid var(--border2);border-radius:16px;
+  padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.4);min-width:580px;
+  display:none;
+}
+.cal-dropdown.open{display:flex;flex-direction:column;gap:12px;}
+.cal-row{display:flex;gap:16px;}
+.cal-month{flex:1;}
+.cal-month-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.cal-month-title{font-size:13px;font-weight:700;color:var(--text);}
+.cal-nav{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:6px;}
+.cal-nav:hover{color:var(--accent);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.cal-dow{text-align:center;font-size:10px;color:var(--muted);padding:4px 0;font-weight:600;}
+.cal-day{
+  text-align:center;font-size:11px;padding:5px 2px;border-radius:6px;
+  cursor:pointer;color:var(--text);transition:all .15s;
+}
+.cal-day:hover{background:var(--accent);color:#fff;}
+.cal-day.empty{cursor:default;}
+.cal-day.today{border:1px solid var(--accent);color:var(--accent);}
+.cal-day.selected{background:var(--accent);color:#fff;font-weight:700;}
+.cal-day.inrange{background:rgba(251,146,60,.2);color:var(--accent);}
+.cal-day.disabled{color:var(--subtle);cursor:default;}
+.cal-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:4px;border-top:1px solid var(--border);}
+.cal-label{font-size:11px;color:var(--muted);}
+.cal-label span{color:var(--accent);font-weight:700;font-family:var(--mono);}
 
 /* MAIN */
 .main{padding:20px 24px;max-width:1400px;margin:0 auto;position:relative;z-index:1;}
@@ -230,12 +260,18 @@ select.fi option{background:var(--bg3);}
   <button class="period-btn"        onclick="setPeriod('thisMonth')" id="p-thisMonth">เดือนนี้</button>
   <button class="period-btn"        onclick="setPeriod('lastMonth')" id="p-lastMonth">เดือนที่แล้ว</button>
   <button class="period-btn"        onclick="setPeriod('thisYear')" id="p-thisYear">ปีนี้</button>
-  <button class="period-btn"        onclick="setPeriod('custom')"   id="p-custom">กำหนดเอง</button>
-  <div class="period-range" id="custom-range" style="display:none">
-    <input type="date" id="range-start">
-    <span>ถึง</span>
-    <input type="date" id="range-end">
-    <button class="btn btn-p" onclick="applyCustom()" style="padding:5px 12px;font-size:11px">ดู</button>
+  <div class="period-range" id="custom-range">
+    <button class="cal-btn" id="p-custom" onclick="toggleCal()">📅 <span id="cal-display">เลือกวันที่</span></button>
+    <div class="cal-dropdown" id="cal-dropdown">
+      <div class="cal-row">
+        <div class="cal-month" id="cal-left"></div>
+        <div class="cal-month" id="cal-right"></div>
+      </div>
+      <div class="cal-footer">
+        <div class="cal-label">เริ่ม: <span id="cal-s-lbl">-</span> &nbsp; ถึง: <span id="cal-e-lbl">-</span></div>
+        <button class="btn btn-p" onclick="applyCustom()" style="padding:4px 16px;font-size:11px">ตกลง</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -361,16 +397,126 @@ function setPeriod(p) {
   PERIOD = p;
   document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('p-'+p)?.classList.add('active');
-  document.getElementById('custom-range').style.display = p==='custom' ? 'flex' : 'none';
+  document.getElementById('p-custom')?.classList.remove('active');
+  closeCal();
   if (p !== 'custom') renderPeriod();
 }
 
+// ── CALENDAR PICKER ────────────────────────────────────
+let calOpen=false, calSelStart=null, calSelEnd=null;
+let calLeftYear, calLeftMonth, calRightYear, calRightMonth;
+
+function initCal() {
+  const now = new Date();
+  calRightYear=now.getFullYear(); calRightMonth=now.getMonth();
+  calLeftYear=now.getFullYear(); calLeftMonth=now.getMonth()-1;
+  if(calLeftMonth<0){calLeftMonth=11;calLeftYear--;}
+}
+
+function toggleCal() {
+  calOpen=!calOpen;
+  const dd=document.getElementById('cal-dropdown');
+  if(calOpen){
+    dd.classList.add('open');
+    document.getElementById('p-custom').classList.add('active');
+    document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+    if(!calLeftYear) initCal();
+    renderCalBoth();
+    // close on outside click
+    setTimeout(()=>document.addEventListener('click',outsideCalClick),10);
+  } else { closeCal(); }
+}
+
+function outsideCalClick(e) {
+  if(!document.getElementById('custom-range').contains(e.target)){
+    closeCal();
+    document.removeEventListener('click',outsideCalClick);
+  }
+}
+
+function closeCal() {
+  calOpen=false;
+  document.getElementById('cal-dropdown').classList.remove('open');
+}
+
+function renderCalBoth() {
+  renderCalMonth('cal-left', calLeftYear, calLeftMonth);
+  renderCalMonth('cal-right', calRightYear, calRightMonth);
+}
+
+function renderCalMonth(id, year, month) {
+  const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const dows=['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const isLeft = id==='cal-left';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const firstDay=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+
+  let html=`<div class="cal-month-header">
+    <button class="cal-nav" onclick="calNav('${id}',-1)">‹</button>
+    <span class="cal-month-title">${months[month]} ${year}</span>
+    <button class="cal-nav" onclick="calNav('${id}',1)">›</button>
+  </div>
+  <div class="cal-grid">`;
+  dows.forEach(d=>html+=`<div class="cal-dow">${d}</div>`);
+  for(let i=0;i<firstDay;i++) html+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const dt=new Date(year,month,d);
+    let cls='cal-day';
+    if(dt.getTime()===today.getTime()) cls+=' today';
+    if(calSelStart && dt.getTime()===calSelStart.getTime()) cls+=' selected';
+    if(calSelEnd && dt.getTime()===calSelEnd.getTime()) cls+=' selected';
+    if(calSelStart && calSelEnd && dt>calSelStart && dt<calSelEnd) cls+=' inrange';
+    html+=`<div class="${cls}" onclick="calDayClick(${year},${month},${d})">${d}</div>`;
+  }
+  html+='</div>';
+  document.getElementById(id).innerHTML=html;
+}
+
+function calNav(id, dir) {
+  if(id==='cal-left'){
+    calLeftMonth+=dir;
+    if(calLeftMonth>11){calLeftMonth=0;calLeftYear++;}
+    if(calLeftMonth<0){calLeftMonth=11;calLeftYear--;}
+  } else {
+    calRightMonth+=dir;
+    if(calRightMonth>11){calRightMonth=0;calRightYear++;}
+    if(calRightMonth<0){calRightMonth=11;calRightYear--;}
+  }
+  renderCalBoth();
+}
+
+function calDayClick(y,m,d) {
+  const dt=new Date(y,m,d);
+  if(!calSelStart || (calSelStart && calSelEnd)){
+    calSelStart=dt; calSelEnd=null;
+  } else {
+    if(dt<calSelStart){calSelEnd=calSelStart;calSelStart=dt;}
+    else calSelEnd=dt;
+  }
+  updateCalLabels();
+  renderCalBoth();
+}
+
+function updateCalLabels() {
+  const fmt=d=>d?`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`:'-';
+  document.getElementById('cal-s-lbl').textContent=fmt(calSelStart);
+  document.getElementById('cal-e-lbl').textContent=fmt(calSelEnd);
+}
+
 function applyCustom() {
-  const s = document.getElementById('range-start').value;
-  const e = document.getElementById('range-end').value;
-  if (!s || !e) return;
-  CUSTOM_START = new Date(s);
-  CUSTOM_END   = new Date(e);
+  if(!calSelStart) return;
+  CUSTOM_START = calSelStart;
+  CUSTOM_END   = calSelEnd || calSelStart;
+  PERIOD='custom';
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('p-custom').classList.add('active');
+  const fmt=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('cal-display').textContent=
+    CUSTOM_START.getTime()===CUSTOM_END.getTime()
+    ? fmt(CUSTOM_START)
+    : fmt(CUSTOM_START)+' – '+fmt(CUSTOM_END);
+  closeCal();
   renderPeriod();
 }
 
@@ -623,8 +769,7 @@ async function submitOrder(){
 }
 
 // default range
-document.getElementById('range-start').value = new Date(Date.now()-7*86400000).toISOString().slice(0,10);
-document.getElementById('range-end').value   = new Date().toISOString().slice(0,10);
+initCal();
 
 loadData();
 setInterval(loadData, 5*60*1000);
