@@ -777,12 +777,12 @@ function renderPeriod() {
     </div>`).join('');
 
   // RECENT — กรองตามช่วงเวลาที่เลือก
-  const recent = (RAW.recent || []).filter(o => {
+  const allFiltered = (RAW.recent || []).filter(o => {
     const d = parseOrderDate(o.date);
     return d && d >= start && d <= end;
   });
-  document.getElementById('recent').innerHTML = recent.length
-    ? recent.slice(-10).reverse().map(o=>`
+  document.getElementById('recent').innerHTML = allFiltered.length
+    ? allFiltered.slice(-10).reverse().map(o=>`
       <div class="order-row">
         <div class="o-dot"></div>
         <div class="o-info">
@@ -793,9 +793,9 @@ function renderPeriod() {
       </div>`).join('')
     : '<div class="empty">ไม่มีออเดอร์ในช่วงนี้</div>';
 
-  // TOP CUSTOMERS — คำนวณจาก recent ที่กรองแล้ว
+  // TOP CUSTOMERS — คำนวณจากออเดอร์ทั้งหมดในช่วงที่เลือก (ไม่ใช่แค่ 10 รายการ)
   const custMap = {};
-  recent.forEach(o => {
+  allFiltered.forEach(o => {
     const name = (o.customer||'').trim();
     if (!name) return;
     if (!custMap[name]) custMap[name] = { name, total: 0, orders: 0 };
