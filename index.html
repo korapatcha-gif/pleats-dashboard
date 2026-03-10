@@ -439,7 +439,7 @@ function renderPeriod() {
   if (!RAW) return;
   const { start, end, label, chartUnit } = getPeriodRange(PERIOD);
   const prev = getPrevRange(PERIOD, start, end);
-  const s = RAW.summary;
+  const s = RAW.summary?.summary || RAW.summary;
   const dailyMap = buildDailyMap(RAW);
 
   // คำนวณจาก daily data จริงๆ
