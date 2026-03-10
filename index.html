@@ -782,7 +782,7 @@ function renderPeriod() {
     return d && d >= start && d <= end;
   });
   document.getElementById('recent').innerHTML = recent.length
-    ? recent.slice(-10).map(o=>`
+    ? recent.slice(-10).reverse().map(o=>`
       <div class="order-row">
         <div class="o-dot"></div>
         <div class="o-info">
